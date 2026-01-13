@@ -1,9 +1,3 @@
-Based on the features we have implemented (Condition tracking, PWA, Import/Export, Audit History, etc.), here is a comprehensive **`README.md`** file for your application.
-
-You can save this as **`README.md`** in your root folder.
-
----
-
 ```markdown
 # StockTrack — Inventory Management System
 
@@ -126,7 +120,3 @@ StockTrack/
 ## 📜 License
 
 This project is open-source. Feel free to modify and distribute.
-
-```
-
-```
