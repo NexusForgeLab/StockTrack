@@ -1,0 +1,9 @@
+services:
+  web:
+    build: .
+    container_name: store_stock_web
+    ports:
+      - "8092:80"
+    volumes:
+      - ./data:/var/www/html/data
+    restart: unless-stopped

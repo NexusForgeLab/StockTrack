@@ -1,0 +1,39 @@
+async function suggestItems(q){
+  const res = await fetch('/api/item_suggest.php?q=' + encodeURIComponent(q));
+  return await res.json();
+}
+function attachItemSuggest(inputId, hiddenId){
+  const input = document.getElementById(inputId);
+  const hidden = hiddenId ? document.getElementById(hiddenId) : null;
+  if(!input) return;
+  input.parentElement.classList.add('suggest');
+  const list = document.createElement('div');
+  list.className='suggest-list';
+  input.parentElement.appendChild(list);
+  let tmr=null, last='';
+  function hide(){ list.style.display='none'; list.innerHTML=''; }
+  function show(items){
+    if(!items || !items.length){ hide(); return; }
+    list.innerHTML='';
+    items.forEach(it=>{
+      const row=document.createElement('div');
+      row.textContent = it.item_code + ' — ' + it.item_name + ' (Qty: ' + it.qty + ')';
+      row.onclick=()=>{
+        input.value = it.item_name;
+        if(hidden) hidden.value = it.item_code;
+        hide();
+      };
+      list.appendChild(row);
+    });
+    list.style.display='block';
+  }
+  input.addEventListener('input', ()=>{
+    const q=input.value.trim();
+    if(q.length<1){ hide(); return; }
+    if(q===last) return;
+    last=q;
+    if(tmr) clearTimeout(tmr);
+    tmr=setTimeout(async ()=>{ try{ show(await suggestItems(q)); }catch(e){ hide(); } }, 150);
+  });
+  input.addEventListener('blur', ()=>setTimeout(hide, 150));
+}
