@@ -1,4 +1,3 @@
-```markdown
 # StockTrack — Inventory Management System
 
 A lightweight, robust Inventory Management System built with **PHP** and **SQLite**. Designed for tracking assets with condition monitoring (New, Repaired, Faulty), transaction auditing, and mobile PWA support.
