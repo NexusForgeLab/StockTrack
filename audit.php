@@ -2,81 +2,214 @@
 require_once __DIR__ . '/app/layout.php';
 $user = require_login();
 $pdo = db();
-$action = strtoupper(trim($_GET['action'] ?? ''));
+
+$view = $_GET['view'] ?? $_SESSION['user']['view_pref'] ?? 'SIMPLE';
+$view = ($view === 'ALL') ? 'ALL' : 'SIMPLE';
+
 $q = trim($_GET['q'] ?? '');
-$who = trim($_GET['who'] ?? '');
-$from = trim($_GET['from'] ?? '');
-$to = trim($_GET['to'] ?? '');
-$where=[]; $args=[];
-if ($action && in_array($action, ['ADD','TAKE','ADJUST'], true)) { $where[]="t.action=?"; $args[]=$action; }
-if ($q !== '') { $where[]="(i.item_name LIKE ? OR i.item_code LIKE ?)"; $args[]='%'.$q.'%'; $args[]='%'.$q.'%'; }
-if ($who !== '') { $where[]="(u.username LIKE ? OR u.display_name LIKE ?)"; $args[]='%'.$who.'%'; $args[]='%'.$who.'%'; }
-if ($from !== '' && preg_match('/^\d{4}-\d{2}-\d{2}$/', $from)) { $where[]="date(t.created_at) >= date(?)"; $args[]=$from; }
-if ($to !== '' && preg_match('/^\d{4}-\d{2}-\d{2}$/', $to)) { $where[]="date(t.created_at) <= date(?)"; $args[]=$to; }
-$sql = "SELECT t.*, i.item_code, i.item_name, u.username, u.display_name
-        FROM transactions t
-        JOIN items i ON i.id=t.item_id
-        LEFT JOIN users u ON u.id=t.user_id";
-if ($where) $sql .= " WHERE " . implode(" AND ", $where);
-$sql .= " ORDER BY t.id DESC LIMIT 500";
-$st=$pdo->prepare($sql); $st->execute($args); $rows=$st->fetchAll();
+$cond = $_GET['condition'] ?? 'ALL';
+$status = $_GET['status'] ?? 'ALL';
+$from = $_GET['from'] ?? '';
+$to = $_GET['to'] ?? '';
+
+$args = [];
+$where = [];
+
+if($cond !== 'ALL') { $where[] = "i.condition = ?"; $args[] = $cond; }
+if($status === 'IN_STOCK') { $where[] = "i.qty > 0"; } 
+elseif($status === 'OUT_OF_STOCK') { $where[] = "i.qty <= 0"; }
+if($q) {
+    $where[] = "(i.id = ? OR i.item_name LIKE ? OR i.item_code LIKE ?)";
+    $args[] = $q; $args[] = "%$q%"; $args[] = "%$q%";
+}
+
+if ($view === 'SIMPLE') {
+    if($from) { $where[] = "date(i.updated_at) >= date(?)"; $args[] = $from; }
+    if($to)   { $where[] = "date(i.updated_at) <= date(?)"; $args[] = $to; }
+    $where[] = "i.is_deleted = 0";
+    $sql = "SELECT * FROM items i";
+    if($where) $sql .= " WHERE " . implode(" AND ", $where);
+    $sql .= " ORDER BY i.item_name ASC";
+    $rows = $pdo->prepare($sql);
+    $rows->execute($args);
+    $rows = $rows->fetchAll();
+} else {
+    if($from) { $where[] = "date(t.created_at) >= date(?)"; $args[] = $from; }
+    if($to)   { $where[] = "date(t.created_at) <= date(?)"; $args[] = $to; }
+    $sql = "SELECT t.*, i.item_code, i.item_name, i.condition, u.username 
+            FROM transactions t
+            LEFT JOIN items i ON i.id=t.item_id 
+            LEFT JOIN users u ON u.id=t.user_id";
+    if($where) $sql .= " WHERE " . implode(" AND ", $where);
+    $sql .= " ORDER BY t.id DESC LIMIT 2000";
+    $rows = $pdo->prepare($sql);
+    $rows->execute($args);
+    $rows = $rows->fetchAll();
+}
 render_header('Audit', $user);
 ?>
-<div class="card">
-  <h1>Audit</h1>
-  <div class="muted">Shows who added or took items and when. Filter by action, item, user, dates.</div>
+
+<div class="card controls-bar">
+  <h1>Audit & Inventory</h1>
+  <div class="view-toggle">
+    <button class="btn <?php echo $view==='SIMPLE'?'active-view':''; ?>" onclick="setView('SIMPLE')">Simple</button>
+    <button class="btn <?php echo $view==='ALL'?'active-view':''; ?>" onclick="setView('ALL')">History</button>
+  </div>
 </div>
 
 <div class="card">
-  <form method="get" class="grid">
-    <div class="col-2">
-      <div class="muted">Action</div>
-      <select name="action">
-        <option value="">All</option>
-        <option value="ADD" <?php echo $action==='ADD'?'selected':''; ?>>ADD</option>
-        <option value="TAKE" <?php echo $action==='TAKE'?'selected':''; ?>>TAKE</option>
-        <option value="ADJUST" <?php echo $action==='ADJUST'?'selected':''; ?>>ADJUST</option>
-      </select>
+  <form method="get" class="grid" id="auditFilter">
+    <input type="hidden" name="view" value="<?php echo h($view); ?>">
+    <div class="col-4"><div class="muted">Search</div><input name="q" value="<?php echo h($q); ?>" placeholder="ID, Name, or Code..." /></div>
+    <div class="col-4"><div class="muted">From</div><input type="date" name="from" value="<?php echo h($from); ?>" /></div>
+    <div class="col-4"><div class="muted">To</div><input type="date" name="to" value="<?php echo h($to); ?>" /></div>
+    <div class="col-3"><div class="muted">Condition</div>
+        <select name="condition">
+            <option value="ALL">All</option>
+            <option value="NEW" <?php echo $cond==='NEW'?'selected':''; ?>>New</option>
+            <option value="REPAIRED" <?php echo $cond==='REPAIRED'?'selected':''; ?>>Repaired</option>
+            <option value="FAULTY" <?php echo $cond==='FAULTY'?'selected':''; ?>>Faulty</option>
+        </select>
     </div>
-    <div class="col-4">
-      <div class="muted">Item (name/code)</div>
-      <input name="q" value="<?php echo h($q); ?>" />
+    <div class="col-3"><div class="muted">Status</div>
+        <select name="status">
+            <option value="ALL">All</option>
+            <option value="IN_STOCK" <?php echo $status==='IN_STOCK'?'selected':''; ?>>In Stock</option>
+            <option value="OUT_OF_STOCK" <?php echo $status==='OUT_OF_STOCK'?'selected':''; ?>>Out of Stock</option>
+        </select>
     </div>
-    <div class="col-3">
-      <div class="muted">Who (username/name)</div>
-      <input name="who" value="<?php echo h($who); ?>" />
-    </div>
-    <div class="col-3">
-      <div class="muted">From / To</div>
-      <div style="display:flex;gap:8px">
-        <input type="date" name="from" value="<?php echo h($from); ?>"/>
-        <input type="date" name="to" value="<?php echo h($to); ?>"/>
-      </div>
-    </div>
-    <div class="col-12">
-      <button class="btn" type="submit">Filter</button>
-      <a class="btn" href="/audit.php">Reset</a>
+    <div class="col-6" style="display:flex; align-items:flex-end; gap:10px;">
+        <button class="btn" type="submit">Filter</button>
+        <button class="btn" type="button" onclick="window.print()">🖨️</button>
     </div>
   </form>
 </div>
 
 <div class="card">
-  <h2>Transactions (latest 500)</h2>
-  <table>
-    <thead><tr><th>When</th><th>Action</th><th>Item</th><th>Delta</th><th>Qty After</th><th>Who</th><th>Note</th></tr></thead>
-    <tbody>
-      <?php foreach($rows as $r): ?>
-      <tr>
-        <td class="muted"><?php echo h($r['created_at']); ?></td>
-        <td><span class="pill"><?php echo h($r['action']); ?></span></td>
-        <td><?php echo h($r['item_code']); ?> — <?php echo h($r['item_name']); ?></td>
-        <td><?php echo (int)$r['delta']; ?></td>
-        <td><?php echo (int)$r['qty_after']; ?></td>
-        <td><?php echo h(($r['username'] ?? 'public') . ' (' . ($r['display_name'] ?? '-') . ')'); ?></td>
-        <td class="muted"><?php echo h($r['note'] ?? ''); ?></td>
-      </tr>
-      <?php endforeach; ?>
-    </tbody>
-  </table>
+  <?php if($view === 'SIMPLE'): ?>
+    <h2>Inventory List</h2>
+    <table>
+      <thead><tr><th>ID</th><th>Code</th><th>Name</th><th>Cond</th><th>Qty</th><th>Status</th></tr></thead>
+      <tbody>
+        <?php foreach($rows as $r): 
+             $condLbl = $r['condition']=='NEW' ? 'NEW' : ($r['condition']=='REPAIRED'?'🛠️ REP':'⚠️ FLT');
+             $condCls = $r['condition']=='NEW' ? 'pill' : ($r['condition']=='REPAIRED'?'pill pill-adjust':'pill pill-take');
+        ?>
+        <tr onclick="showDetails(<?php echo $r['id']; ?>, '<?php echo h($r['item_name']); ?>')" style="cursor:pointer">
+          <td class="muted"><?php echo (int)$r['id']; ?></td>
+          <td><span class="pill"><?php echo h($r['item_code']); ?></span></td>
+          <td><?php echo h($r['item_name']); ?></td>
+          <td><span class="<?php echo $condCls; ?>" style="font-size:0.8em"><?php echo $condLbl; ?></span></td>
+          <td><?php echo (int)$r['qty']; ?></td>
+          <td><?php echo $r['qty']>0 ? "<span class='good'>In Stock</span>" : "<span class='bad'>Out of Stock</span>"; ?></td>
+        </tr>
+        <?php endforeach; ?>
+      </tbody>
+    </table>
+  <?php else: ?>
+    <h2>Transaction History</h2>
+    <div class="table-scroll">
+      <table>
+        <thead><tr><th>Time</th><th>Act</th><th>Item</th><th>Delta</th><th>User</th></tr></thead>
+        <tbody>
+          <?php foreach($rows as $r): 
+            $act = $r['action'] === 'ADD' ? 'IN' : ($r['action'] === 'TAKE' ? 'OUT' : $r['action']);
+            $cls = $act === 'IN' ? 'pill-add' : ($act === 'OUT' ? 'pill-take' : 'pill-adjust');
+            $code = $r['item_code'] ? h($r['item_code']) : '???';
+            $name = $r['item_name'] ? h($r['item_name']) : 'Deleted Item (ID: '.$r['item_id'].')';
+            $cond = $r['condition'] ?? '';
+            $condLbl = $cond=='NEW' ? '' : ($cond=='REPAIRED'?' [REP]':($cond=='FAULTY'?' [FLT]':''));
+          ?>
+          <tr>
+            <td class="muted" style="white-space:nowrap;font-size:0.85em"><?php echo substr($r['created_at'],0,16); ?></td>
+            <td><span class="pill <?php echo $cls; ?>"><?php echo h($act); ?></span></td>
+            <td><?php echo $code; ?> — <?php echo $name; ?><small><?php echo $condLbl; ?></small></td>
+            <td><?php echo (int)$r['delta']; ?></td>
+            <td><?php echo h($r['username'] ?? '-'); ?></td>
+          </tr>
+          <?php endforeach; ?>
+        </tbody>
+      </table>
+    </div>
+  <?php endif; ?>
 </div>
+
+<div id="detailModal" class="modal">
+  <div class="modal-content">
+    <span class="close" onclick="closeModal()">&times;</span>
+    <h2 id="modalTitle">Details</h2>
+    <div id="modalBody">Loading...</div>
+  </div>
+</div>
+
+<script>
+// Track current item to refresh properly
+let curId = 0;
+let curName = '';
+
+async function setView(mode) {
+    await fetch('/api/set_pref.php', { method:'POST', headers:{'Content-Type':'application/x-www-form-urlencoded'}, body:'view='+mode });
+    const url = new URL(window.location.href); url.searchParams.set('view', mode); window.location.href = url.toString();
+}
+
+async function showDetails(id, name) {
+    curId = id; 
+    curName = name;
+    document.getElementById('detailModal').style.display='block';
+    document.getElementById('modalTitle').innerText = name + ' (ID: '+id+')';
+    document.getElementById('modalBody').innerHTML = 'Loading...';
+    try {
+        const res = await fetch('/api/get_history.php?id=' + id);
+        if(!res.ok) throw new Error("API Error");
+        document.getElementById('modalBody').innerHTML = await res.text();
+    } catch(e) {
+        document.getElementById('modalBody').innerHTML = "Error loading history.";
+    }
+}
+
+// NEW FUNCTION TO HANDLE POPUP ACTIONS
+async function doTransact(type, csrf) {
+    const qtyInput = document.getElementById('modalQty');
+    const noteInput = document.getElementById('modalNote');
+    const msg = document.getElementById('modalMsg');
+
+    const qty = qtyInput.value;
+    const note = noteInput.value;
+
+    if(!qty || qty <= 0) { 
+        msg.innerHTML = '<span style="color:red">Invalid quantity</span>'; return; 
+    }
+
+    msg.innerHTML = '<span style="color:#666">Processing...</span>';
+
+    try {
+        const res = await fetch('/api/transact.php', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({
+                id: curId,
+                type: type,
+                qty: qty,
+                note: note,
+                csrf: csrf
+            })
+        });
+        const data = await res.json();
+        
+        if(data.error) {
+            msg.innerHTML = '<span style="color:red">Error: ' + data.error + '</span>';
+        } else {
+            msg.innerHTML = '<span style="color:green">Success!</span>';
+            // Refresh the modal to show new history and new stock level
+            await showDetails(curId, curName);
+        }
+    } catch(e) {
+        msg.innerHTML = '<span style="color:red">Network Error</span>';
+    }
+}
+
+function closeModal(){ document.getElementById('detailModal').style.display='none'; }
+window.onclick = e => { if(e.target == document.getElementById('detailModal')) closeModal(); }
+</script>
+<style>.active-view{background:var(--primary);color:#fff;border-color:var(--primary);}</style>
 <?php render_footer(); ?>

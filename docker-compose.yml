@@ -1,7 +1,7 @@
 services:
   web:
     build: .
-    container_name: store_stock_web
+    container_name: stock-track
     ports:
       - "8092:80"
     volumes:

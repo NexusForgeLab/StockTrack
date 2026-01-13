@@ -39,6 +39,7 @@ function login_user(array $userRow): void {
     'username' => $userRow['username'],
     'display_name' => $userRow['display_name'],
     'role' => $userRow['role'],
+    'view_pref' => $userRow['view_pref'] ?? 'SIMPLE',
   ];
 }
 

@@ -17,5 +17,13 @@ function db(): PDO {
   ]);
   $pdo->exec('PRAGMA foreign_keys = ON;');
   $pdo->exec('PRAGMA journal_mode = WAL;');
+
+  // --- MINIMAL CHECKS ---
+  // Ensure users table has view_pref
+  $cols = $pdo->query("PRAGMA table_info(users)")->fetchAll();
+  $hasPref = false;
+  foreach($cols as $c) if($c['name'] === 'view_pref') $hasPref = true;
+  if(!$hasPref) $pdo->exec("ALTER TABLE users ADD COLUMN view_pref TEXT DEFAULT 'SIMPLE'");
+
   return $pdo;
 }
