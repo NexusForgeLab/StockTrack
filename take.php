@@ -45,9 +45,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 }
 render_header('Stock OUT', $user);
 ?>
+
 <div class="card">
   <h1>Stock OUT</h1>
-  <div class="muted">Search item by name/code and take stock out.</div>
+  <div class="muted">Search item by name/code to record usage.</div>
 </div>
 <?php if($err): ?><div class="card bad"><?php echo h($err); ?></div><?php endif; ?>
 <?php if($ok): ?><div class="card good"><?php echo h($ok); ?></div><?php endif; ?>

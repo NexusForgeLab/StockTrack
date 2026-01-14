@@ -10,21 +10,17 @@ $st->execute([$id]);
 $item = $st->fetch();
 
 if(!$item) {
-    echo "<p class='bad'>Item not found (ID: $id). It may have been deleted.</p>";
-    // Fallback logic for deleted items...
-    $logs = $pdo->prepare("SELECT t.*, u.username FROM transactions t LEFT JOIN users u ON t.user_id = u.id WHERE t.item_id = ? ORDER BY t.created_at DESC LIMIT 500");
-    $logs->execute([$id]);
-    $logs = $logs->fetchAll();
-    if(!$logs) { echo "No history found."; exit; }
-} else {
-    $rel = $pdo->prepare("SELECT condition, qty FROM items WHERE item_code = ? ORDER BY condition ASC");
-    $rel->execute([$item['item_code']]);
-    $related = $rel->fetchAll();
-
-    $hist = $pdo->prepare("SELECT t.*, u.username FROM transactions t LEFT JOIN users u ON t.user_id = u.id WHERE t.item_id = ? ORDER BY t.created_at DESC LIMIT 500");
-    $hist->execute([$id]);
-    $logs = $hist->fetchAll();
+    echo "<p class='bad'>Item not found. It may have been deleted.</p>";
+    exit;
 }
+
+$rel = $pdo->prepare("SELECT condition, qty FROM items WHERE item_code = ? ORDER BY condition ASC");
+$rel->execute([$item['item_code']]);
+$related = $rel->fetchAll();
+
+$hist = $pdo->prepare("SELECT t.*, u.username FROM transactions t LEFT JOIN users u ON t.user_id = u.id WHERE t.item_id = ? ORDER BY t.created_at DESC LIMIT 500");
+$hist->execute([$id]);
+$logs = $hist->fetchAll();
 ?>
 
 <?php if($item): ?>
@@ -39,15 +35,27 @@ if(!$item) {
     </div>
 
     <strong style="font-size:0.9em; text-transform:uppercase; color:#888;">Quick Actions</strong>
-    <div style="display:flex; gap:10px; margin-top:8px; align-items:center; flex-wrap:wrap;">
+    <div style="margin-top:5px; margin-bottom:10px; font-size:0.9em;">
+        <label style="margin-right:15px; cursor:pointer;">
+            <input type="checkbox" id="mChkRep" onchange="mToggle('mChkRep')"> 🛠️ Repaired
+        </label>
+        <label style="cursor:pointer;">
+            <input type="checkbox" id="mChkFlt" onchange="mToggle('mChkFlt')"> ⚠️ Faulty
+        </label>
+        <div class="muted" style="font-size:0.8em; margin-top:2px;">(If none selected, defaults to <b>NEW</b>)</div>
+    </div>
+
+    <div style="display:flex; gap:10px; align-items:center; flex-wrap:wrap;">
         <input type="number" id="modalQty" placeholder="Qty" min="1" value="1" style="width:70px; padding:8px; border:1px solid #ccc; border-radius:4px;">
         <input type="text" id="modalNote" placeholder="Note (optional)" style="flex-grow:1; padding:8px; border:1px solid #ccc; border-radius:4px; min-width:150px;">
         
         <?php if($user['role'] === 'admin'): ?>
-            <button onclick="doTransact('IN', '<?php echo csrf_token(); ?>')" style="background:#28a745; color:white; border:none; padding:8px 16px; border-radius:4px; cursor:pointer; font-weight:bold;">+ IN</button>
+            <button onclick="doGlobalTransact('IN', '<?php echo csrf_token(); ?>')" style="background:#28a745; color:white; border:none; padding:8px 16px; border-radius:4px; cursor:pointer; font-weight:bold;">+ IN</button>
+        <?php else: ?>
+            <button onclick="doGlobalTransact('IN', '<?php echo csrf_token(); ?>', true)" style="background:#17a2b8; color:white; border:none; padding:8px 16px; border-radius:4px; cursor:pointer; font-weight:bold;">↩ Return</button>
         <?php endif; ?>
         
-        <button onclick="doTransact('OUT', '<?php echo csrf_token(); ?>')" style="background:#dc3545; color:white; border:none; padding:8px 16px; border-radius:4px; cursor:pointer; font-weight:bold;">- OUT</button>
+        <button onclick="doGlobalTransact('OUT', '<?php echo csrf_token(); ?>')" style="background:#dc3545; color:white; border:none; padding:8px 16px; border-radius:4px; cursor:pointer; font-weight:bold;">- OUT</button>
     </div>
     <div id="modalMsg" style="margin-top:5px; font-size:0.85em; height:1.2em;"></div>
 </div>
@@ -56,7 +64,7 @@ if(!$item) {
     <span class="muted">Other Conditions:</span>
     <div style="display:flex; gap:8px; margin-top:4px; flex-wrap:wrap;">
         <?php foreach($related as $r): 
-            if($r['condition'] == $item['condition']) continue; // Skip current
+            if($r['condition'] == $item['condition']) continue; 
             $c = $r['condition'];
             $bg = $c==='NEW'?'#d4edda':($c==='FAULTY'?'#f8d7da':'#fff3cd');
         ?>

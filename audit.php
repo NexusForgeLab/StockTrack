@@ -92,16 +92,19 @@ render_header('Audit', $user);
       <thead><tr><th>ID</th><th>Code</th><th>Name</th><th>Cond</th><th>Qty</th><th>Status</th></tr></thead>
       <tbody>
         <?php foreach($rows as $r): 
-             $condLbl = $r['condition']=='NEW' ? 'NEW' : ($r['condition']=='REPAIRED'?'🛠️ REP':'⚠️ FLT');
+             $condLbl = $r['condition']=='NEW' ? 'NEW' : ($r['condition']=='REPAIRED'?'??? REP':'?? FLT');
              $condCls = $r['condition']=='NEW' ? 'pill' : ($r['condition']=='REPAIRED'?'pill pill-adjust':'pill pill-take');
+             $qty = (int)$r['qty'];
+             $min = (int)($r['min_qty'] ?? 0);
+             $rowClass = ($qty <= $min && $qty > 0) ? 'row-low-stock' : '';
         ?>
-        <tr onclick="showDetails(<?php echo $r['id']; ?>, '<?php echo h($r['item_name']); ?>')" style="cursor:pointer">
+        <tr class="<?php echo $rowClass; ?>" onclick="showItemDetails(<?php echo $r['id']; ?>, '<?php echo h($r['item_name']); ?>')" style="cursor:pointer">
           <td class="muted"><?php echo (int)$r['id']; ?></td>
           <td><span class="pill"><?php echo h($r['item_code']); ?></span></td>
           <td><?php echo h($r['item_name']); ?></td>
           <td><span class="<?php echo $condCls; ?>" style="font-size:0.8em"><?php echo $condLbl; ?></span></td>
-          <td><?php echo (int)$r['qty']; ?></td>
-          <td><?php echo $r['qty']>0 ? "<span class='good'>In Stock</span>" : "<span class='bad'>Out of Stock</span>"; ?></td>
+          <td><?php echo $qty; ?></td>
+          <td><?php echo $qty>0 ? "<span class='good'>In Stock</span>" : "<span class='bad'>Out of Stock</span>"; ?></td>
         </tr>
         <?php endforeach; ?>
       </tbody>
@@ -123,7 +126,7 @@ render_header('Audit', $user);
           <tr>
             <td class="muted" style="white-space:nowrap;font-size:0.85em"><?php echo substr($r['created_at'],0,16); ?></td>
             <td><span class="pill <?php echo $cls; ?>"><?php echo h($act); ?></span></td>
-            <td><?php echo $code; ?> — <?php echo $name; ?><small><?php echo $condLbl; ?></small></td>
+            <td><?php echo $code; ?>   <?php echo $name; ?><small><?php echo $condLbl; ?></small></td>
             <td><?php echo (int)$r['delta']; ?></td>
             <td><?php echo h($r['username'] ?? '-'); ?></td>
           </tr>
@@ -134,82 +137,11 @@ render_header('Audit', $user);
   <?php endif; ?>
 </div>
 
-<div id="detailModal" class="modal">
-  <div class="modal-content">
-    <span class="close" onclick="closeModal()">&times;</span>
-    <h2 id="modalTitle">Details</h2>
-    <div id="modalBody">Loading...</div>
-  </div>
-</div>
-
 <script>
-// Track current item to refresh properly
-let curId = 0;
-let curName = '';
-
 async function setView(mode) {
     await fetch('/api/set_pref.php', { method:'POST', headers:{'Content-Type':'application/x-www-form-urlencoded'}, body:'view='+mode });
     const url = new URL(window.location.href); url.searchParams.set('view', mode); window.location.href = url.toString();
 }
-
-async function showDetails(id, name) {
-    curId = id; 
-    curName = name;
-    document.getElementById('detailModal').style.display='block';
-    document.getElementById('modalTitle').innerText = name + ' (ID: '+id+')';
-    document.getElementById('modalBody').innerHTML = 'Loading...';
-    try {
-        const res = await fetch('/api/get_history.php?id=' + id);
-        if(!res.ok) throw new Error("API Error");
-        document.getElementById('modalBody').innerHTML = await res.text();
-    } catch(e) {
-        document.getElementById('modalBody').innerHTML = "Error loading history.";
-    }
-}
-
-// NEW FUNCTION TO HANDLE POPUP ACTIONS
-async function doTransact(type, csrf) {
-    const qtyInput = document.getElementById('modalQty');
-    const noteInput = document.getElementById('modalNote');
-    const msg = document.getElementById('modalMsg');
-
-    const qty = qtyInput.value;
-    const note = noteInput.value;
-
-    if(!qty || qty <= 0) { 
-        msg.innerHTML = '<span style="color:red">Invalid quantity</span>'; return; 
-    }
-
-    msg.innerHTML = '<span style="color:#666">Processing...</span>';
-
-    try {
-        const res = await fetch('/api/transact.php', {
-            method: 'POST',
-            headers: {'Content-Type': 'application/json'},
-            body: JSON.stringify({
-                id: curId,
-                type: type,
-                qty: qty,
-                note: note,
-                csrf: csrf
-            })
-        });
-        const data = await res.json();
-        
-        if(data.error) {
-            msg.innerHTML = '<span style="color:red">Error: ' + data.error + '</span>';
-        } else {
-            msg.innerHTML = '<span style="color:green">Success!</span>';
-            // Refresh the modal to show new history and new stock level
-            await showDetails(curId, curName);
-        }
-    } catch(e) {
-        msg.innerHTML = '<span style="color:red">Network Error</span>';
-    }
-}
-
-function closeModal(){ document.getElementById('detailModal').style.display='none'; }
-window.onclick = e => { if(e.target == document.getElementById('detailModal')) closeModal(); }
 </script>
 <style>.active-view{background:var(--primary);color:#fff;border-color:var(--primary);}</style>
 <?php render_footer(); ?>

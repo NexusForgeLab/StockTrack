@@ -44,13 +44,17 @@ render_header('Public Stock Check', $user);
     <tbody>
     <?php foreach($items as $it):
       $qty = (int)$it['qty']; 
+      $min = (int)($it['min_qty'] ?? 0);
       
       // Determine Condition Label & Color
-      $cond = $it['condition']; // NEW, REPAIRED, FAULTY
+      $cond = $it['condition']; 
       $condLbl = $cond === 'NEW' ? 'NEW' : ($cond === 'REPAIRED' ? '🛠️ REP' : '⚠️ FLT');
       $condCls = $cond === 'NEW' ? 'pill' : ($cond === 'REPAIRED' ? 'pill pill-adjust' : 'pill pill-take');
+      
+      // Low Stock Logic
+      $rowClass = ($qty <= $min && $qty > 0) ? 'row-low-stock' : '';
     ?>
-      <tr>
+      <tr class="<?php echo $rowClass; ?>">
         <td><span class="pill"><?php echo h($it['item_code']); ?></span></td>
         <td><?php echo h($it['item_name']); ?></td>
         <td><span class="<?php echo $condCls; ?>" style="font-size:0.85em"><?php echo $condLbl; ?></span></td>

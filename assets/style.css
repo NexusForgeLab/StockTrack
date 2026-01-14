@@ -127,7 +127,10 @@ table { width: 100%; border-collapse: collapse; min-width: 600px; }
 th { text-align: left; color: var(--text-muted); font-size: 0.85rem; text-transform: uppercase; letter-spacing: 0.05em; border-bottom: 2px solid var(--border); padding: 10px; }
 td { padding: 12px 10px; border-bottom: 1px solid var(--border); }
 tr:last-child td { border-bottom: none; }
-tr:hover { background-color: #faf9f5; } /* Slight hover effect */
+tr:hover { background-color: #faf9f5; }
+
+/* Low Stock Highlight */
+.row-low-stock { background-color: #fff3cd !important; }
 
 /* Components */
 .pill { padding: 4px 10px; border-radius: 99px; background: var(--pill-bg); font-size: 0.85rem; font-family: monospace; }
@@ -135,7 +138,7 @@ tr:hover { background-color: #faf9f5; } /* Slight hover effect */
 .good { color: var(--success); font-weight: 500; }
 .kbd { font-family: monospace; background: var(--pill-bg); padding: 2px 6px; border-radius: 4px; border: 1px solid var(--border); }
 
-/* Action Badges (Updated: IN=Green, OUT=Red) */
+/* Action Badges */
 .pill-add  { background: var(--success-bg); color: var(--success-text); border: 1px solid #c3e6cb; }
 .pill-take { background: var(--danger-bg);  color: var(--danger-text);  border: 1px solid #f5c6cb; }
 .pill-adjust { background: #fff3cd; color: #856404; border: 1px solid #ffeeba; }
@@ -171,37 +174,16 @@ tr:hover { background-color: #faf9f5; } /* Slight hover effect */
 
 /* Print Styles */
 @media print {
-  /* Hide interactive elements */
   .topbar, .btn, form, .controls-bar, .no-print, .view-toggle { display: none !important; }
-  
-  /* Reset container widths */
   body, .wrap, .card { 
-    background: white; 
-    color: black; 
-    width: 100%; 
-    max-width: 100%; 
-    margin: 0; 
-    padding: 0; 
-    box-shadow: none; 
-    border: none; 
+    background: white; color: black; width: 100%; max-width: 100%; margin: 0; padding: 0; 
+    box-shadow: none; border: none; 
   }
-
-  /* Table Formatting */
   .table-scroll { overflow: visible; }
   table { width: 100%; border: 1px solid #000; }
   th, td { border: 1px solid #000; padding: 6px; color: black; }
   th { background-color: #eee !important; -webkit-print-color-adjust: exact; }
-  
-  /* Text adjustments */
   h1, h2 { margin-bottom: 10px; color: black; }
   a { text-decoration: none; color: black; }
-  
-  /* Badges to text */
-  .pill, .pill-add, .pill-take { 
-    border: none; 
-    background: none !important; 
-    padding: 0; 
-    color: black !important;
-    font-weight: bold;
-  }
+  .pill, .pill-add, .pill-take { border: none; background: none !important; padding: 0; color: black !important; font-weight: bold; }
 }

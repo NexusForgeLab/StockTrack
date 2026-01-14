@@ -20,6 +20,7 @@ function render_header(string $title, ?array $user): void { ?>
   <link rel="icon" type="image/png" href="/assets/logo.png">
   <link rel="apple-touch-icon" href="/assets/icon-192.png">
 
+  <script src="https://unpkg.com/html5-qrcode" type="text/javascript"></script>
   <link rel="stylesheet" href="/assets/style.css"/>
 </head>
 <body>
@@ -33,6 +34,7 @@ function render_header(string $title, ?array $user): void { ?>
     <div class="nav">
       <a class="btn" href="/public.php">Public Check</a>
       <?php if($user): ?>
+        <button class="btn" onclick="startGlobalScanner()">📷 Scan</button>
         <a class="btn" href="/take.php">OUT</a> 
         <a class="btn" href="/audit.php">Audit</a>
         <?php if(($user['role'] ?? '') === 'admin'): ?>
@@ -50,6 +52,24 @@ function render_header(string $title, ?array $user): void { ?>
 
 function render_footer(): void { ?>
   </div>
+  
+  <div id="globalScannerModal" class="modal">
+    <div class="modal-content" style="max-width:500px; text-align:center;">
+        <span class="close" onclick="stopGlobalScanner()">&times;</span>
+        <h2>Scan Item</h2>
+        <div id="globalReader" style="width:100%"></div>
+        <p class="muted">Point camera at QR Code / Barcode</p>
+    </div>
+  </div>
+
+  <div id="globalDetailModal" class="modal">
+    <div class="modal-content">
+        <span class="close" onclick="closeGlobalModal()">&times;</span>
+        <h2 id="globalModalTitle">Details</h2>
+        <div id="globalModalBody">Loading...</div>
+    </div>
+  </div>
+
   <script src="/assets/app.js"></script>
 </body>
 </html>
